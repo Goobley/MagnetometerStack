@@ -52,7 +52,7 @@ uint32_t xoro_next(void) {
 }
 // xoroshiro128++ end
 
-const int MaxChannels = 16;
+#define MaxChannels 16
 typedef struct _Channel
 {
     bool is_active;
@@ -71,8 +71,8 @@ typedef struct _HrdlUnit
     _Channel channels[MaxChannels+1];
 } _HrdlUnit;
 
-const int MaxUnits = 16;
-const int MaxHandle = 17;
+#define MaxUnits 16
+#define MaxHandle 17
 static _HrdlUnit _g_units[MaxHandle];
 // NOTE(cmo): First one is never initialised since handle can't be 0/null.
 

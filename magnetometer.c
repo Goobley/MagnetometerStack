@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <assert.h>
 #include <signal.h>
 #include <stdlib.h>
@@ -462,6 +463,19 @@ void prepare_data_block(DataLogger* d)
     }
 }
 
+int64_t stderr_heartbeat(int64_t prev_time)
+{
+    int64_t now = current_epoch_millis();
+
+    // NOTE(cmo): 3 mins
+    if (now - prev_time < 180000)
+        return prev_time;
+
+    fprintf(stderr, "Process alive at millis: %lld\n", now);
+
+    return now;
+}
+
 int main(int argc, const char* argv[])
 {
     DataLogger d = open_device();
@@ -479,6 +493,7 @@ int main(int argc, const char* argv[])
     int32_t data_len = BlockSize * d.num_active_channels;
     int32_t* data_block = calloc(data_len, sizeof(int32_t));
     double* calibrated_block = calloc(data_len, sizeof(double));
+    int64_t prev_heartbeat_time = 0;
     while (true)
     {
         // NOTE(cmo): Start receiving a block of data.
@@ -490,7 +505,8 @@ int main(int argc, const char* argv[])
         while (!HRDLReady(d.handle))
         {
             // NOTE(cmo): Sleep for only 100 ms to also pump mqtt messages.
-            usleep(100000U);
+            struct timespec sleep_time = {.tv_sec=0, .tv_nsec=100000};
+            nanosleep(&sleep_time, NULL);
             mqtt_sync(&pub->client);
         }
 
@@ -510,15 +526,7 @@ int main(int argc, const char* argv[])
                        calibrated_block
         );
         send_mqtt_messages(pub, calibrated_block, BlockSize, d.num_active_channels, block_start_timestamp);
-        for (int i = 0; i < num_readings; ++i)
-        {
-            for (int j = 0; j < d.num_active_channels; ++j)
-            {
-                printf("%f ", calibrated_block[i * d.num_active_channels + j]);
-            }
-            printf("\n");
-        }
-        printf("----\n\n");
+        prev_heartbeat_time = stderr_heartbeat(prev_heartbeat_time);
     }
 
     free(data_block);

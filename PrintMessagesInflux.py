@@ -1,4 +1,3 @@
-from distutils.command.config import config
 import paho.mqtt.client as mqtt
 from dataclasses import dataclass
 import numpy as np
@@ -13,7 +12,7 @@ from configparser import ConfigParser
 import os
 
 ConfigPath = "server.conf"
-InfluxBucket = "Magnetometer"
+InfluxBucket = "observatory"
 InfluxTag = "Magnetometer"
 MqttTopic = "Magnetometer"
 
@@ -73,7 +72,7 @@ class MagnetometerDataMiddleLayer:
         self.prev_sync_time = time.time()
 
     def submit_reading_influx(self, data):
-        p = Point(self.influx_bucket).tag("Instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
+        p = Point(self.influx_bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
         self.write_api.write(bucket=self.influx_bucket, record=p)
 
     def submit_reading_text(self, data):

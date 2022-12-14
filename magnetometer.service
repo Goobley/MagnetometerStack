@@ -1,0 +1,13 @@
+[Unit]
+Description=Magnetometer IO to MQTT
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mag
+Restart=always
+RestartSec=2
+StandardOutput=file:/var/log/mag.out
+StandardError=file:/var/log/mag.err
+
+[Install]
+WantedBy=default.target

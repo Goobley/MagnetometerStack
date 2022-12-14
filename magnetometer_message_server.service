@@ -1,0 +1,11 @@
+[Unit]
+Description=Magnetometer MQTT to Influx/FTP
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/PrintMessagesInflux.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=default.target

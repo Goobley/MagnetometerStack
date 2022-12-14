@@ -20,6 +20,7 @@ const char* MqttEndpoint = "localhost";
 const char* MqttPort = "1883";
 const char* MqttClient = "Magnetometer";
 const char* MqttTopic = "Magnetometer";
+const char* LogFile = "/var/log/magnetometer-interface.log";
 typedef struct MqttPublisher
 {
     struct mqtt_client client;
@@ -464,7 +465,7 @@ void prepare_data_block(DataLogger* d)
     }
 }
 
-int64_t stderr_heartbeat(int64_t prev_time)
+int64_t log_heartbeat(FILE* log_file, int64_t prev_time)
 {
     int64_t now = current_epoch_millis();
 
@@ -472,7 +473,8 @@ int64_t stderr_heartbeat(int64_t prev_time)
     if (now - prev_time < 180000)
         return prev_time;
 
-    fprintf(stderr, "Process alive at millis: %lld\n", now);
+    fprintf(log_file, "Process alive at millis: %lld\n", now);
+    fflush(log_file);
 
     return now;
 }
@@ -495,6 +497,9 @@ int main(int argc, const char* argv[])
     int32_t* data_block = calloc(data_len, sizeof(int32_t));
     double* calibrated_block = calloc(data_len, sizeof(double));
     int64_t prev_heartbeat_time = 0;
+
+    FILE* log_file = fopen(LogFile, "w");
+    int64_t log_file_open = current_epoch_millis();
     while (true)
     {
         // NOTE(cmo): Start receiving a block of data.
@@ -527,7 +532,14 @@ int main(int argc, const char* argv[])
                        calibrated_block
         );
         send_mqtt_messages(pub, calibrated_block, BlockSize, d.num_active_channels, block_start_timestamp);
-        prev_heartbeat_time = stderr_heartbeat(prev_heartbeat_time);
+        prev_heartbeat_time = log_heartbeat(log_file, prev_heartbeat_time);
+        if (prev_heartbeat_time - log_file_open > 259200000L)
+        {
+            // NOTE(cmo): Recycle log file every 3 days.
+            fclose(log_file);
+            log_file = fopen(LogFile, "w");
+            log_file_open = current_epoch_millis();
+        }
     }
 
     free(data_block);

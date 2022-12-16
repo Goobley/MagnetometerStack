@@ -54,9 +54,12 @@ class MagnetometerDataMiddleLayer:
         self.influx_tag = influx_tag
         self.write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 
-        # TODO(cmo): Refresh from remote server
+        if not os.path.exists(Conf["magnetometer"]["local_dir"]):
+            os.makedirs(Conf["magnetometer"]["local_dir"])
         self.local_dir = FsTarget(Conf["magnetometer"]["local_dir"])
         if LocalFsTest:
+            if not os.path.exists("/tmp/fake-magnetometer-remote"):
+                os.makedirs("/tmp/fake-magnetometer-remote")
             self.remote_target = FsTarget("/tmp/fake-magnetometer-remote")
         else:
             self.remote_target = FTPTarget(
@@ -83,7 +86,9 @@ class MagnetometerDataMiddleLayer:
     def submit_reading_text(self, data):
         data_time = datetime.datetime.fromtimestamp(float(data.timestamp) / 1000)
         midnight_timestamp = data_time.replace(hour=0, minute=0, second=0, microsecond=0).timestamp() * 1000
-        with open(os.path.join(Conf["magnetometer"]["local_dir"], self.filename_from_date(data_time)), 'a') as f:
+
+        file_path = os.path.join(Conf["magnetometer"]["local_dir"], self.filename_from_date(data_time))
+        with open(file_path, 'a') as f:
             f.write(data.text_repr(midnight_timestamp) + "\n")
 
     def sync_files_from_server(self):
@@ -99,7 +104,7 @@ class MagnetometerDataMiddleLayer:
         self.submit_reading_influx(data)
         self.submit_reading_text(data)
 
-        if time.time() - self.prev_sync_time > 1:
+        if time.time() - self.prev_sync_time > Conf["ftp"]["sync_time"]:
             self.sync_files_to_server()
 
     @staticmethod

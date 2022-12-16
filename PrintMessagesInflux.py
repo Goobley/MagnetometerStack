@@ -10,6 +10,9 @@ from ftpsync.ftp_target import FTPTarget
 from ftpsync.synchronizers import DownloadSynchronizer, UploadSynchronizer
 from configparser import ConfigParser
 import os
+import logging
+from logging.handlers import TimedRotatingFileHandler
+import sys
 
 # NOTE(cmo): Set this to False on deployment
 LocalFsTest = True
@@ -18,6 +21,19 @@ ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
 InfluxBucket = "observatory"
 InfluxTag = "Magnetometer"
 MqttTopic = "Magnetometer"
+
+root_logger = logging.getLogger()
+try:
+    handler = TimedRotatingFileHandler(
+        "/var/log/magnetometer-handler.conf",
+        when="D",
+        backupCount=5
+    )
+except PermissionError as e:
+    root_logger.error("Can't create logging file, due to permissions errors.")
+    sys.exit(1)
+
+root_logger.addHandler(handler)
 
 Conf = ConfigParser()
 Conf.read(ConfigPath)

@@ -56,10 +56,12 @@ class MagnetometerDataMiddleLayer:
 
         if not os.path.exists(Conf["magnetometer"]["local_dir"]):
             os.makedirs(Conf["magnetometer"]["local_dir"])
+            os.chmod(Conf["magnetometer"]["local_dir"], 0o1777)
         self.local_dir = FsTarget(Conf["magnetometer"]["local_dir"])
         if LocalFsTest:
             if not os.path.exists("/tmp/fake-magnetometer-remote"):
                 os.makedirs("/tmp/fake-magnetometer-remote")
+                os.chmod("/tmp/fake-magnetometer-remote", 0o1777)
             self.remote_target = FsTarget("/tmp/fake-magnetometer-remote")
         else:
             self.remote_target = FTPTarget(

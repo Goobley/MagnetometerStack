@@ -7,3 +7,6 @@ cp PrintMessagesInflux.py /usr/local/bin/.
 
 cp magnetometer.service /etc/systemd/system/.
 cp magnetometer_message_server.service /etc/systemd/system/.
+
+mkdir -p /tmp/magnetometer-data
+mkdir -p /tmp/fake-magnetometer-remote

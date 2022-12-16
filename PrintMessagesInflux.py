@@ -11,6 +11,9 @@ from ftpsync.synchronizers import DownloadSynchronizer, UploadSynchronizer
 from configparser import ConfigParser
 import os
 
+# NOTE(cmo): Set this to False on deployment
+LocalFsTest = True
+
 ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
 InfluxBucket = "observatory"
 InfluxTag = "Magnetometer"
@@ -53,15 +56,17 @@ class MagnetometerDataMiddleLayer:
 
         # TODO(cmo): Refresh from remote server
         self.local_dir = FsTarget(Conf["magnetometer"]["local_dir"])
-        # self.remote_target = FTPTarget(
-        #     path=Conf["ftp"]["remote_dir"],
-        #     host=Conf["ftp"]["host"],
-        #     port=int(Conf["ftp"]["port"]),
-        #     username=Conf["ftp"]["username"],
-        #     password=Conf["ftp"]["password"],
-        #     timeout=40,
-        # )
-        self.remote_target = FsTarget("./test/")
+        if LocalFsTest:
+            self.remote_target = FsTarget("/tmp/fake-magnetometer-remote")
+        else:
+            self.remote_target = FTPTarget(
+                path=Conf["ftp"]["remote_dir"],
+                host=Conf["ftp"]["host"],
+                port=int(Conf["ftp"]["port"]),
+                username=Conf["ftp"]["username"],
+                password=Conf["ftp"]["password"],
+                timeout=40,
+            )
         download_opts = {
             "resolve": "remote",
             "match": "*" + self.filename_from_date(datetime.datetime.utcnow())

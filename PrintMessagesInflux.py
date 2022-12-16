@@ -106,7 +106,7 @@ class MagnetometerDataMiddleLayer:
         self.submit_reading_influx(data)
         self.submit_reading_text(data)
 
-        if time.time() - self.prev_sync_time > Conf["ftp"]["sync_time"]:
+        if time.time() - self.prev_sync_time > float(Conf["ftp"]["sync_time"]):
             self.sync_files_to_server()
 
     @staticmethod

@@ -10,3 +10,6 @@ cp magnetometer_message_server.service /etc/systemd/system/.
 
 mkdir -p /tmp/magnetometer-data
 mkdir -p /tmp/fake-magnetometer-remote
+
+mkdir -p /var/log/magnetometer-handler
+chown -R pi /var/log/magnetometer-handler

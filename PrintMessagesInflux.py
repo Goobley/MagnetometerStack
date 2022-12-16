@@ -25,7 +25,7 @@ MqttTopic = "Magnetometer"
 root_logger = logging.getLogger()
 try:
     handler = TimedRotatingFileHandler(
-        "/var/log/magnetometer-handler.conf",
+        "/var/log/magnetometer-handler/log",
         when="D",
         backupCount=5
     )

@@ -11,7 +11,7 @@ from ftpsync.synchronizers import DownloadSynchronizer, UploadSynchronizer
 from configparser import ConfigParser
 import os
 
-ConfigPath = "server.conf"
+ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
 InfluxBucket = "observatory"
 InfluxTag = "Magnetometer"
 MqttTopic = "Magnetometer"
@@ -27,7 +27,7 @@ Conf.read(ConfigPath)
 def on_connect(client, userdata, flags, rc):
     client.subscribe(MqttTopic)
 
-@dataclass 
+@dataclass
 class MagSample:
     timestamp: np.int64
     data: np.ndarray

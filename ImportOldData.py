@@ -59,7 +59,7 @@ if __name__ == '__main__':
         file_samples = []
         for line_idx in range(data.shape[0]):
             sample = MagSample.from_array_line(data[line_idx, :], midnight)
-            file_samples.append(sample.to_point())
+            file_samples.append(sample.to_point(InfluxBucket, InfluxTag))
         write_api.write(bucket=InfluxBucket, record=file_samples)
 
         print(f" => File '{file}' done.")

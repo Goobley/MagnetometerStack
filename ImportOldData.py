@@ -13,6 +13,7 @@ ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
 InfluxBucket = "observatory"
 InfluxTag = "MagnetometerOld"
 ImportPath = "/OldMagData/magnetometer/"
+StartImportFrom = '2018-10-01'
 
 Conf = ConfigParser()
 Conf.read(ConfigPath)
@@ -53,6 +54,14 @@ write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 
 if __name__ == '__main__':
     import_files = [ImportPath + f for f in sorted(os.listdir(ImportPath)) if f.endswith('.txt')]
+    if StartImportFrom is not None:
+        for i, f in enumerate(import_files):
+            if StartImportFrom in f:
+                break
+        else:
+            raise ValueError(f"StartImportFrom ({StartImportFrom}) value not found.")
+        import_files = import_files[i:]
+
     for file in import_files:
         midnight = datetime.datetime.fromisoformat(f'{path.splitext(path.basename(file))[0]}T00:00:00+00:00').timestamp() * 1000
         data = np.genfromtxt(file)

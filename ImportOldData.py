@@ -12,7 +12,7 @@ from os import path
 ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
 InfluxBucket = "observatory"
 InfluxTag = "MagnetometerOld"
-ImportPath = "/OldMagData/Magnetometer/"
+ImportPath = "/OldMagData/magnetometer/"
 
 Conf = ConfigParser()
 Conf.read(ConfigPath)
@@ -40,7 +40,7 @@ class MagSample:
 
     @classmethod
     def from_array_line(cls, line, midnight):
-        timestamp = np.int64(line[0]) + midnight
+        timestamp = np.int64(line[0] + midnight)
         data = line[1:]
         return cls(timestamp, data)
 

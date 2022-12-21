@@ -18,7 +18,7 @@ import sys
 LocalFsTest = False
 
 ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
-InfluxBucket = "magnetometer2023"
+InfluxBucketTemplate = "magnetometer{year:d}"
 InfluxTag = "Magnetometer"
 MqttTopic = "Magnetometer"
 
@@ -67,6 +67,7 @@ class MagnetometerDataMiddleLayer:
     def __init__(self, influx_client, influx_bucket, influx_tag):
         self.influx_client = influx_client
         self.influx_bucket = influx_bucket
+        self.bucket_is_template = '{' in influx_bucket and '}' in influx_bucket
         self.influx_tag = influx_tag
         self.write_api = influx_client.write_api(write_options=SYNCHRONOUS)
 
@@ -98,18 +99,26 @@ class MagnetometerDataMiddleLayer:
         self.prev_sync_time = time.time()
         self.influx_point_list = []
 
+    @property
+    def bucket_name(self):
+        bucket = self.influx_bucket
+        if self.bucket_is_template:
+            bucket = bucket.format(year=datetime.datetime.fromtimestamp(data.timestamp / 1000).year)
+        return bucket
+
     def to_influx_point(self, data):
-        p = Point(self.influx_bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
+        p = Point(self.bucket_name).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
         return p
 
     def submit_influx_point_list(self):
         # NOTE(cmo): For batching.
-        self.write_api.write(bucket=self.influx_bucket, record=self.influx_point_list)
+        self.write_api.write(bucket=self.bucket_name, record=self.influx_point_list)
         self.influx_point_list = []
 
     def submit_reading_influx(self, data):
-        p = Point(self.influx_bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
-        self.write_api.write(bucket=self.influx_bucket, record=p)
+        bucket = self.bucket_name
+        p = Point(bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
+        self.write_api.write(bucket=bucket, record=p)
 
     def submit_reading_text(self, data):
         data_time = datetime.datetime.fromtimestamp(float(data.timestamp) / 1000)
@@ -147,7 +156,7 @@ class MagnetometerDataMiddleLayer:
 if __name__ == '__main__':
 
     database = InfluxDBClient.from_config_file(ConfigPath)
-    data_handler = MagnetometerDataMiddleLayer(database, InfluxBucket, InfluxTag)
+    data_handler = MagnetometerDataMiddleLayer(database, InfluxBucketTemplate, InfluxTag)
 
     def on_message(client, userdata, msg):
         if msg.topic == MqttTopic:

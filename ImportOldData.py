@@ -10,7 +10,8 @@ from os import path
 
 
 ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
-InfluxBucket = "observatory"
+InfluxBucketTemplate = "magnetometer{year:d}"
+BucketIsTemplate = '{' in InfluxBucketTemplate and '}' in InfluxBucketTemplate
 InfluxTag = "MagnetometerOld"
 ImportPath = "/OldMagData/magnetometer/"
 StartImportFrom = '2018-10-01'
@@ -63,12 +64,17 @@ if __name__ == '__main__':
         import_files = import_files[i:]
 
     for file in import_files:
-        midnight = datetime.datetime.fromisoformat(f'{path.splitext(path.basename(file))[0]}T00:00:00+00:00').timestamp() * 1000
+        file_date = datetime.datetime.fromisoformat(f'{path.splitext(path.basename(file))[0]}T00:00:00+00:00')
+        midnight = file_date.timestamp() * 1000
+        bucket = InfluxBucketTemplate
+        if BucketIsTemplate:
+            bucket = bucket.format(year=file_date.year)
+
         data = np.genfromtxt(file)
         file_samples = []
         for line_idx in range(data.shape[0]):
             sample = MagSample.from_array_line(data[line_idx, :], midnight)
-            file_samples.append(sample.to_point(InfluxBucket, InfluxTag))
-        write_api.write(bucket=InfluxBucket, record=file_samples)
+            file_samples.append(sample.to_point(bucket, InfluxTag))
+        write_api.write(bucket=bucket, record=file_samples)
 
         print(f" => File '{file}' done.")

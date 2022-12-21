@@ -99,20 +99,27 @@ class MagnetometerDataMiddleLayer:
         self.prev_sync_time = time.time()
         self.influx_point_list = []
 
-    @property
-    def bucket_name(self):
+    def bucket_name(self, data):
         bucket = self.influx_bucket
         if self.bucket_is_template:
             bucket = bucket.format(year=datetime.datetime.fromtimestamp(data.timestamp / 1000).year)
         return bucket
 
-    def to_influx_point(self, data):
-        p = Point(self.bucket_name).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
-        return p
+    def to_influx_bucket_point(self, data):
+        bucket = self.bucket_name(data)
+        p = Point(bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
+        return bucket, p
 
     def submit_influx_point_list(self):
         # NOTE(cmo): For batching.
-        self.write_api.write(bucket=self.bucket_name, record=self.influx_point_list)
+        buckets, points = zip(*self.influx_point_list)
+        # NOTE(cmo): Do a batched write if they're all going to the same bucket.
+        if all([b == buckets[0] for b in buckets]):
+            self.write_api.write(bucket=buckets[0], record=points)
+        else:
+            for b, p in self.influx_point_list:
+                self.write_api.write(bucket=b, record=p)
+
         self.influx_point_list = []
 
     def submit_reading_influx(self, data):

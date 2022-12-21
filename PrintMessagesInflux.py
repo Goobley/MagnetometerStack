@@ -15,10 +15,10 @@ from logging.handlers import TimedRotatingFileHandler
 import sys
 
 # NOTE(cmo): Set this to False on deployment
-LocalFsTest = True
+LocalFsTest = False
 
 ConfigPath = f"{os.environ['HOME']}/.config/magnetometer/server.conf"
-InfluxBucket = "observatory"
+InfluxBucket = "magnetometer2023"
 InfluxTag = "Magnetometer"
 MqttTopic = "Magnetometer"
 
@@ -86,16 +86,26 @@ class MagnetometerDataMiddleLayer:
                 port=int(Conf["ftp"]["port"]),
                 username=Conf["ftp"]["username"],
                 password=Conf["ftp"]["password"],
-                timeout=40,
+                timeout=120,
             )
         download_opts = {
             "resolve": "remote",
-            "match": "*" + self.filename_from_date(datetime.datetime.utcnow())
+            "match": "*" + self.filename_from_date(datetime.datetime.utcnow()),
         }
         self.ftp_downloader = DownloadSynchronizer(self.local_dir, self.remote_target, download_opts)
         self.ftp_uploader = UploadSynchronizer(self.local_dir, self.remote_target, {"resolve": "local"})
         self.sync_files_from_server()
         self.prev_sync_time = time.time()
+        self.influx_point_list = []
+
+    def to_influx_point(self, data):
+        p = Point(self.influx_bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
+        return p
+
+    def submit_influx_point_list(self):
+        # NOTE(cmo): For batching.
+        self.write_api.write(bucket=self.influx_bucket, record=self.influx_point_list)
+        self.influx_point_list = []
 
     def submit_reading_influx(self, data):
         p = Point(self.influx_bucket).tag("instrument", self.influx_tag).field("east-west", data.data[0]).field("north-south", data.data[1]).field("up-down", data.data[2]).field("temperature", data.data[3]).time(data.timestamp, WritePrecision.MS)
@@ -119,11 +129,16 @@ class MagnetometerDataMiddleLayer:
     def handle_mqtt_message(self, mag_msg):
         data = MagSample.from_buf(mag_msg.payload)
 
-        self.submit_reading_influx(data)
+        self.influx_point_list.append(self.to_influx_point(data))
+
         self.submit_reading_text(data)
 
-        if time.time() - self.prev_sync_time > float(Conf["ftp"]["sync_time"]):
-            self.sync_files_to_server()
+        # NOTE(cmo): Messages come through in batches of 4.
+        if len(self.influx_point_list) >= 4:
+            self.submit_influx_point_list()
+            # NOTE(cmo): Don't do an FTP sync unless we're at the end of a batch
+            if time.time() - self.prev_sync_time > float(Conf["ftp"]["sync_time"]):
+                self.sync_files_to_server()
 
     @staticmethod
     def filename_from_date(t):
@@ -135,11 +150,13 @@ if __name__ == '__main__':
     data_handler = MagnetometerDataMiddleLayer(database, InfluxBucket, InfluxTag)
 
     def on_message(client, userdata, msg):
-        if msg.topic == "Magnetometer":
+        if msg.topic == MqttTopic:
             data_handler.handle_mqtt_message(msg)
 
 
-    client = mqtt.Client("MagnetometerRecv")
+    # NOTE(cmo): clean_session=False indicates that we are a "durable" client,
+    # and messages should be preserved for us.
+    client = mqtt.Client("MagnetometerRecv", clean_session=False)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect("localhost", 1883)

@@ -145,7 +145,7 @@ class MagnetometerDataMiddleLayer:
     def handle_mqtt_message(self, mag_msg):
         data = MagSample.from_buf(mag_msg.payload)
 
-        self.influx_point_list.append(self.to_influx_point(data))
+        self.influx_point_list.append(self.to_influx_bucket_point(data))
 
         self.submit_reading_text(data)
 
